@@ -1,13 +1,24 @@
 """
 🚨 בוט התראות פיקוד העורף → Google Chat
-=========================================
 """
 import requests, json, time, logging, os
 from datetime import datetime
 
-GOOGLE_CHAT_WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
-POLL_INTERVAL_SECONDS   = 3
-FILTER_AREAS            = []
+WEBHOOK_URLS = [
+    url.strip()
+    for key, url in os.environ.items()
+    if key.startswith("WEBHOOK_URL") and url.strip()
+]
+
+# fallback אם אין משתני סביבה
+if not WEBHOOK_URLS:
+    WEBHOOK_URLS = [
+        "https://chat.googleapis.com/v1/spaces/AAQAgdDJy_E/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=Vh0L5WfIwKGBgkjw8_IahWLnZpJPBx433T4KKtA6E44",
+        "https://chat.googleapis.com/v1/spaces/AAQAGhxWZZM/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=IZg6yXQqGqRyXvBE26DX6t_E6IGJnKZoDokjzyjmY2E",
+    ]
+
+POLL_INTERVAL_SECONDS = 3
+FILTER_AREAS = []
 
 OREF_ALERTS_URL = "https://www.oref.org.il/WarningMessages/alert/alerts.json"
 OREF_HEADERS = {
@@ -40,17 +51,16 @@ def format_message(alert):
     return {"cards":[{"header":{"title":f"{icon} {title}","subtitle":f"פיקוד העורף | {now}","imageUrl":"https://www.oref.org.il/Shared/images/Oref-logo.png","imageStyle":"IMAGE"},"sections":[{"widgets":[{"textParagraph":{"text":f"<b>🗺️ אזורים מוזהרים:</b>\n{areas_text}"}}]},{"widgets":[{"textParagraph":{"text":f"<b>ℹ️ הנחיות:</b> {desc}"}}]},{"widgets":[{"buttons":[{"textButton":{"text":"🔗 אתר פיקוד העורף","onClick":{"openLink":{"url":"https://www.oref.org.il/"}}}}]}]}]}]}
 
 def send(message):
-    try:
-        r = requests.post(GOOGLE_CHAT_WEBHOOK_URL, json=message, timeout=10)
-        log.info("✅ נשלח" if r.status_code==200 else f"❌ {r.status_code}: {r.text}")
-    except Exception as e:
-        log.error(f"❌ {e}")
+    for url in WEBHOOK_URLS:
+        try:
+            r = requests.post(url, json=message, timeout=10)
+            log.info("✅ נשלח" if r.status_code==200 else f"❌ {r.status_code}: {r.text}")
+        except Exception as e:
+            log.error(f"❌ {e}")
 
 def main():
-    if not GOOGLE_CHAT_WEBHOOK_URL:
-        log.error("❌ חסר WEBHOOK_URL!"); return
-    log.info("🚀 בוט פיקוד העורף מופעל...")
-    send({"text":"🟢 *בוט התראות פיקוד העורף הופעל*\nמאזין לעדכונים בזמן אמת..."})
+    log.info(f"🚀 בוט פיקוד העורף מופעל — {len(WEBHOOK_URLS)} קבוצות")
+    send({"text": f"🟢 *בוט התראות פיקוד העורף הופעל*\nמאזין לעדכונים בזמן אמת... ({len(WEBHOOK_URLS)} קבוצות)"})
     last_id = None
     while True:
         alert = get_current_alerts()
