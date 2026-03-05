@@ -1,8 +1,8 @@
 """
 🚨 בוט התראות פיקוד העורף → Google Chat
-עיצוב זהה למערכת המבזקים הקיימת — פרופיל "צבע אדום"
+עיצוב מותאם למערכת המבזקים הקיימת
 """
-import requests, json, time, logging, os
+import requests, json, time, logging
 from datetime import datetime
 
 WEBHOOK_URLS = [
@@ -12,7 +12,6 @@ WEBHOOK_URLS = [
 
 PROFILE_TITLE = "צבע אדום"
 PROFILE_LOGO  = "https://i.postimg.cc/ncKKRgq9/image.png"
-
 POLL_INTERVAL_SECONDS = 3
 FILTER_AREAS = []  # ריק = כל הארץ
 
@@ -22,7 +21,6 @@ OREF_HEADERS = {
     "User-Agent": "Mozilla/5.0",
     "X-Requested-With": "XMLHttpRequest",
 }
-
 ALERT_ICONS = {"1":"🚀","2":"✈️","3":"💣","4":"🌊","5":"☢️","6":"🔫","7":"💥","13":"🛸","20":"🚨"}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
@@ -42,40 +40,30 @@ def get_current_alerts():
 
 
 def format_message(alert):
-    icon       = ALERT_ICONS.get(str(alert.get("cat", "20")), "⚠️")
+    icon  = ALERT_ICONS.get(str(alert.get("cat", "20")), "⚠️")
     alert_type = alert.get("title", "התראת חירום")
-    areas      = alert.get("data", [])
-    desc       = alert.get("desc", "היכנסו למרחב המוגן מיד!")
-    now        = datetime.now().strftime("%H:%M")
-
+    areas = alert.get("data", [])
+    desc  = alert.get("desc", "היכנסו למרחב המוגן מיד!")
+    now   = datetime.now().strftime("%H:%M")
     areas_text = "\n".join(f"• {a}" for a in areas) if areas else "אזור לא ידוע"
-
     body_text = (
         f"<b>{icon} {alert_type}</b>\n\n"
         f"<b>🗺️ אזורים מוזהרים:</b>\n{areas_text}\n\n"
         f"<b>ℹ️ הנחיות:</b> {desc}"
     )
-
     return {
-        "cardsV2": [{
-            "card": {
-                "header": {
-                    "title":    PROFILE_TITLE,
-                    "subtitle": f"נשלח ב: {now}",
-                    "imageUrl": PROFILE_LOGO,
-                    "imageType": "CIRCLE"
-                },
-                "sections": [{
-                    "widgets": [
-                        {"textParagraph": {"text": body_text}},
-                        {"buttonList": {"buttons": [{
-                            "text": "🔗 אתר פיקוד העורף",
-                            "onClick": {"openLink": {"url": "https://www.oref.org.il/"}}
-                        }]}}
-                    ]
-                }]
-            }
-        }]
+        "cardsV2": [{"card": {
+            "header": {
+                "title":    PROFILE_TITLE,
+                "subtitle": f"נשלח ב: {now}",
+                "imageUrl": PROFILE_LOGO,
+                "imageType": "CIRCLE"
+            },
+            "sections": [{"widgets": [
+                {"textParagraph": {"text": body_text}},
+                {"buttonList": {"buttons": [{"text": "🔗 אתר פיקוד העורף", "onClick": {"openLink": {"url": "https://www.oref.org.il/"}}}]}}
+            ]}]
+        }}]
     }
 
 
@@ -90,8 +78,6 @@ def send(message):
 
 def main():
     log.info(f"🚀 בוט פיקוד העורף מופעל — {len(WEBHOOK_URLS)} קבוצות")
-    send({"text": f"🟢 *בוט התראות פיקוד העורף הופעל*\nמאזין לעדכונים בזמן אמת..."})
-
     last_id = None
     while True:
         alert = get_current_alerts()
