@@ -790,9 +790,18 @@ function saveGithubUrl() {
 }
 
 async function fetchTxt(url) {
-    const res = await fetch(url + '?t=' + Date.now()); // cache bust
-    if (!res.ok) throw new Error('קובץ לא נמצא: ' + url.split('/').pop());
-    return await res.text();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+        const res = await fetch(url + '?t=' + Date.now(), { signal: controller.signal });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error('קובץ לא נמצא: ' + url.split('/').pop());
+        return await res.text();
+    } catch(e) {
+        clearTimeout(timer);
+        if (e.name === 'AbortError') throw new Error('timeout — GitHub לא הגיב');
+        throw e;
+    }
 }
 
 async function fetchFromSheets() {
