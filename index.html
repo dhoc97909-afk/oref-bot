@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>מערכת מבזקים</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/js/all.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700&display=swap');
+    * { box-sizing: border-box; }
+    body { font-family: 'Assistant', sans-serif; background: #f0f4f8; min-height: 100vh; }
+
+    /* Card */
+    .card { background: white; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+
+    /* Profile buttons */
+    .profile-btn { border: 2px solid #e5e7eb; border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all .2s; background: white; width: 100%; }
+    .profile-btn:hover { border-color: #93c5fd; background: #f0f9ff; }
+    .profile-btn.active-news { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    .profile-btn.active-red { border-color: #dc2626; background: #fef2f2; box-shadow: 0 0 0 3px rgba(220,38,38,0.12); }
+
+    /* Editor */
+    .rich-editor { min-height: 130px; padding: 14px; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: border-color .2s, box-shadow .2s; font-size: 15px; line-height: 1.6; }
+    .rich-editor:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    .rich-editor:empty:before { content: attr(placeholder); color: #9ca3af; }
+    .rich-editor.drag-over { border-color: #2563eb; background: #eff6ff; }
+
+    /* Toolbar button */
+    .tb-btn { padding: 6px 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: white; cursor: pointer; font-size: 13px; color: #374151; transition: all .15s; display: flex; align-items: center; gap: 5px; }
+    .tb-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+    .tb-btn.accent { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; font-weight: 600; }
+    .tb-btn.accent:hover { background: #dbeafe; }
+    .tb-btn.paste-btn { background: #f0fdf4; border-color: #bbf7d0; color: #16a34a; font-weight: 600; }
+    .tb-btn.paste-btn:hover { background: #dcfce7; }
+
+    /* Input */
+    .input-field { border: 2px solid #e5e7eb; border-radius: 10px; padding: 9px 12px; font-size: 14px; width: 100%; outline: none; transition: border-color .2s; font-family: 'Assistant', sans-serif; }
+    .input-field:focus { border-color: #2563eb; }
+
+    /* Upload label */
+    .upload-label { cursor: pointer; border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: all .2s; }
+
+    /* Send button */
+    .send-btn { width: 100%; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; }
+    .send-btn-news { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; box-shadow: 0 4px 14px rgba(37,99,235,0.3); }
+    .send-btn-news:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,99,235,0.4); }
+    .send-btn-red { background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; box-shadow: 0 4px 14px rgba(220,38,38,0.3); }
+    .send-btn-red:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(220,38,38,0.4); }
+
+    /* Tab system */
+    .tab-btn { padding: 8px 18px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all .2s; border: none; background: transparent; color: #6b7280; }
+    .tab-btn.active { background: white; color: #1f2937; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+    /* History item */
+    .history-item { border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 16px; background: #fafafa; transition: all .2s; }
+    .history-item:hover { border-color: #93c5fd; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .history-badge-news { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+    .history-badge-red { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    /* Webhook item */
+    .webhook-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+    .webhook-url { font-size: 11px; color: #6b7280; font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: left; }
+
+    /* Modal */
+    .modal-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .modal-box { background: white; border-radius: 28px; padding: 32px; max-width: 360px; width: 100%; box-shadow: 0 25px 60px rgba(0,0,0,0.2); animation: popIn .3s cubic-bezier(.34,1.56,.64,1) forwards; }
+    @keyframes popIn { from { opacity:0; transform:scale(.88) translateY(24px) } to { opacity:1; transform:scale(1) translateY(0) } }
+
+    /* Progress bar */
+    .prog-bar { height: 6px; border-radius: 99px; background: #e5e7eb; overflow: hidden; margin-top: 12px; }
+    .prog-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg,#2563eb,#60a5fa); transition: width .3s; }
+
+    /* Divider */
+    .divider { border: none; border-top: 1px solid #f3f4f6; margin: 16px 0; }
+
+    /* Section label */
+    .section-label { font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+  </style>
+</head>
+<body class="p-4 md:p-6">
+
+<!-- ═══════════════════════ EMERGENCY MODAL ═══════════════════════ -->
+<div id="modalEmergency" class="modal-backdrop hidden">
+  <div class="modal-box text-center">
+    <div class="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 text-3xl">
+      <i class="fas fa-bolt"></i>
+    </div>
+    <h3 class="text-2xl font-bold text-gray-800 mb-2">רגע, זה חירום?</h3>
+    <p class="text-gray-500 mb-7 leading-relaxed text-sm">זיהינו מילות חירום בטקסט. האם לשלוח תחת פרופיל <strong>צבע אדום</strong>?</p>
+    <div class="flex flex-col gap-3">
+      <button onclick="handleModal('switch')" class="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition flex items-center justify-center gap-2 shadow-lg shadow-red-100">
+        <i class="fas fa-exchange-alt"></i> כן, החלף לצבע אדום ושלח
+      </button>
+      <button onclick="handleModal('continue')" class="w-full bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-black transition">
+        שלח כמבזק רגיל
+      </button>
+      <button onclick="handleModal('cancel')" class="w-full py-3 text-gray-400 font-semibold hover:text-gray-700 transition">
+        ביטול וחזרה לעריכה
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ STATUS MODAL ═══════════════════════ -->
+<div id="modalStatus" class="modal-backdrop hidden">
+  <div class="modal-box text-center">
+    <div id="statusIcon" class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl bg-blue-100 text-blue-600"></div>
+    <h3 id="statusTitle" class="text-xl font-bold text-gray-800 mb-1"></h3>
+    <p id="statusDesc" class="text-gray-500 text-sm mb-5"></p>
+    <div id="statusProgWrap" class="prog-bar hidden"><div id="statusProgFill" class="prog-fill" style="width:0%"></div></div>
+    <div id="statusCancelWrap" class="hidden mt-4">
+      <button onclick="cancelSend()" class="w-full bg-red-50 text-red-600 font-bold py-3 rounded-xl hover:bg-red-100 border border-red-100 transition">
+        <i class="fas fa-times ml-1"></i> ביטול שליחה
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ HIDDEN INPUTS ═══════════════════════ -->
+<input type="hidden" id="imgbbApiKey" value="74b5db34f7d743e270990275f1afd0ee">
+<input type="hidden" id="googleClientId" value="856723702772-jm929ihp29ovhribfaaph17pbaq6qr3n.apps.googleusercontent.com">
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<div class="max-w-2xl mx-auto mb-5 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">📡 מערכת מבזקים</h1>
+    <p class="text-sm text-gray-500 mt-0.5">שלח הודעות לקבוצות Google Chat</p>
+  </div>
+  <!-- Tab switcher -->
+  <div class="bg-gray-100 rounded-xl p-1 flex gap-1">
+    <button class="tab-btn active" id="tab-compose" onclick="switchTab('compose')"><i class="fas fa-edit ml-1"></i>כתיבה</button>
+    <button class="tab-btn" id="tab-history" onclick="switchTab('history')"><i class="fas fa-history ml-1"></i>היסטוריה</button>
+    <button class="tab-btn" id="tab-webhooks" onclick="switchTab('webhooks')"><i class="fas fa-link ml-1"></i>Webhooks</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════ COMPOSE TAB ═══════════════════════ -->
+<div id="tabCompose" class="max-w-2xl mx-auto space-y-4">
+
+  <!-- Profile selector -->
+  <div class="card p-5">
+    <div class="section-label">פרופיל שליחה</div>
+    <div class="grid grid-cols-2 gap-3">
+      <button onclick="setProfile('news')" id="btn-news" class="profile-btn active-news">
+        <img src="https://i.postimg.cc/zvyWy8wk/צילום_מסך_2026_03_01_031615.png" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
+        <div class="text-right">
+          <div class="font-bold text-sm text-gray-800">מבזק חדשות</div>
+          <div class="text-xs text-gray-400 mt-0.5" id="news-count">0 Webhooks</div>
+        </div>
+      </button>
+      <button onclick="setProfile('red')" id="btn-red" class="profile-btn">
+        <img src="https://i.postimg.cc/ncKKRgq9/image.png" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
+        <div class="text-right">
+          <div class="font-bold text-sm text-red-600">צבע אדום</div>
+          <div class="text-xs text-gray-400 mt-0.5" id="red-count">0 Webhooks</div>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div class="card p-5">
+    <div class="section-label">תוכן ההודעה</div>
+
+    <!-- Toolbar -->
+    <div class="flex flex-wrap gap-2 mb-3 pb-3 border-b border-gray-100">
+      <button onclick="format('bold')" class="tb-btn" title="הדגשה"><i class="fas fa-bold"></i></button>
+      <button onclick="format('italic')" class="tb-btn" title="נטוי"><i class="fas fa-italic"></i></button>
+      <div class="w-px h-6 bg-gray-200 self-center mx-1"></div>
+      <button onclick="insertVideoTag()" class="tb-btn accent"><i class="fas fa-video"></i> וידאו בשרשור</button>
+      <button onclick="pasteFromClipboard()" class="tb-btn paste-btn" id="pasteBtn"><i class="fas fa-clipboard"></i> הדבק</button>
+      <button onclick="clearEditor()" class="tb-btn" style="margin-right:auto" title="נקה"><i class="fas fa-trash-alt text-gray-400"></i></button>
+    </div>
+
+    <!-- Text editor -->
+    <div id="editor" class="rich-editor" contenteditable="true"
+         placeholder="הקלד כאן... (או גרור תמונה/סרטון לכאן)"
+         oninput="onEditorChange()"
+         ondragover="editorDragOver(event)"
+         ondragleave="editorDragLeave(event)"
+         ondrop="editorDrop(event)"></div>
+
+    <!-- Char counter -->
+    <div class="flex justify-between mt-2 text-xs text-gray-400">
+      <span id="charCount">0 תווים</span>
+      <span id="keywordAlert" class="text-orange-500 font-semibold hidden"><i class="fas fa-exclamation-triangle ml-1"></i>זוהתה מילת חירום</span>
+    </div>
+  </div>
+
+  <!-- Media -->
+  <div class="card p-5">
+    <div class="section-label">מדיה</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <!-- Image -->
+      <div>
+        <label class="text-sm font-semibold text-gray-700 block mb-1.5"><i class="fas fa-image text-blue-500 ml-1"></i>תמונה</label>
+        <div class="flex gap-2">
+          <input type="text" id="newsImgUrl" oninput="updateImgPreviewDot()" placeholder="https://..." class="input-field">
+          <label class="upload-label bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition">
+            <i class="fas fa-upload text-xs"></i> העלה
+            <input id="uploadImg" type="file" accept="image/*" class="hidden" onchange="uploadImageFile(this.files[0]); this.value='';">
+          </label>
+        </div>
+        <div id="imgThumb" class="mt-2 hidden">
+          <img id="imgThumbImg" class="w-full h-28 object-cover rounded-lg border border-gray-200">
+          <button onclick="clearImage()" class="text-xs text-red-500 mt-1 hover:underline"><i class="fas fa-times ml-1"></i>הסר תמונה</button>
+        </div>
+      </div>
+
+      <!-- Video -->
+      <div>
+        <label class="text-sm font-semibold text-gray-700 block mb-1.5"><i class="fas fa-video text-purple-500 ml-1"></i>סרטון</label>
+        <div class="flex gap-2">
+          <input type="text" id="videoUrl" oninput="updateVideoPreviewDot()" placeholder="קישור לסרטון..." class="input-field">
+          <label class="upload-label bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 transition">
+            <i class="fas fa-video text-xs"></i> העלה
+            <input id="uploadVid" type="file" accept="video/*" class="hidden" onchange="uploadVideoFile(this.files[0]); this.value='';">
+          </label>
+        </div>
+        <div id="vidInfo" class="mt-1.5 text-xs text-gray-400 hidden">
+          <i class="fas fa-check-circle text-green-500 ml-1"></i><span id="vidInfoText">סרטון מצורף</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="card p-5">
+    <div class="section-label">כפתורי פעולה</div>
+    <div class="flex gap-2 mb-3">
+      <input type="text" id="btnText" placeholder="טקסט הכפתור" class="input-field w-1/2">
+      <input type="text" id="btnUrl" placeholder="כתובת URL" class="input-field w-1/2">
+    </div>
+    <button onclick="addButton()" class="tb-btn accent w-full justify-center mb-3">
+      <i class="fas fa-plus"></i> הוסף כפתור
+    </button>
+    <div id="buttonsList" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <!-- Send -->
+  <div>
+    <button id="sendBtn" onclick="initiateSend()" class="send-btn send-btn-news">
+      <i class="fas fa-paper-plane"></i> שלח כעת
+    </button>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════ HISTORY TAB ═══════════════════════ -->
+<div id="tabHistory" class="max-w-2xl mx-auto hidden">
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="section-label mb-0">היסטוריית שליחות</div>
+      <button onclick="clearHistory()" class="text-xs text-red-400 hover:text-red-600 transition font-semibold"><i class="fas fa-trash ml-1"></i>נקה הכל</button>
+    </div>
+    <div id="historyList" class="space-y-3">
+      <div class="text-center py-12 text-gray-400">
+        <i class="fas fa-inbox text-4xl mb-3 block opacity-30"></i>
+        <p class="text-sm">עדיין לא נשלחו הודעות</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ WEBHOOKS TAB ═══════════════════════ -->
+<div id="tabWebhooks" class="max-w-2xl mx-auto hidden space-y-4">
+
+  <!-- Connection card -->
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gray-900 flex items-center justify-center flex-shrink-0">
+          <i class="fab fa-github text-white text-lg"></i>
+        </div>
+        <div>
+          <div class="font-bold text-gray-800">מקור: GitHub</div>
+          <div id="lastSyncTime" class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+            <i class="fas fa-circle text-gray-300 text-[8px]"></i> לא סונכרן
+          </div>
+        </div>
+      </div>
+      <button onclick="fetchFromSheets()" id="syncBtn" class="tb-btn accent">
+        <i class="fas fa-sync-alt"></i> רענן
+      </button>
+    </div>
+
+    <div id="syncStatus" class="hidden mb-4">
+      <div id="syncStatusInner" class="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl"></div>
+    </div>
+
+    <!-- GitHub base URL -->
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+      <label class="text-xs font-bold text-gray-600 block mb-1.5">
+        כתובת Raw של הריפו בגיטהאב
+      </label>
+      <div class="flex gap-2 items-center">
+        <input type="text" id="githubBaseUrl"
+               placeholder="https://raw.githubusercontent.com/USER/REPO/main"
+               class="input-field text-xs flex-1" style="direction:ltr;font-family:monospace">
+        <button onclick="saveGithubUrl()" class="upload-label bg-gray-900 text-white hover:bg-black border-0 flex-shrink-0">
+          <i class="fas fa-save"></i> שמור
+        </button>
+      </div>
+      <span id="urlSaveStatus" class="text-xs text-green-600 font-semibold mt-1 block"></span>
+
+      <!-- Setup guide -->
+      <div class="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3 text-xs text-blue-900">
+        <div class="font-bold mb-1">⚡ הגדרה חד-פעמית (2 דקות)</div>
+        <div class="flex gap-2 items-start">
+          <span class="w-5 h-5 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold flex-shrink-0 text-[10px] mt-0.5">1</span>
+          <span>צור ריפו חדש ב-GitHub (ציבורי)</span>
+        </div>
+        <div class="flex gap-2 items-start">
+          <span class="w-5 h-5 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold flex-shrink-0 text-[10px] mt-0.5">2</span>
+          <div>
+            צור שני קבצים:<br>
+            <code class="bg-blue-100 px-1 rounded font-mono">webhooks-news.txt</code> — וובהוקי מבזק חדשות<br>
+            <code class="bg-blue-100 px-1 rounded font-mono">webhooks-red.txt</code> — וובהוקי צבע אדום<br>
+            כל שורה = וובהוק אחד
+          </div>
+        </div>
+        <div class="flex gap-2 items-start">
+          <span class="w-5 h-5 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold flex-shrink-0 text-[10px] mt-0.5">3</span>
+          <span>
+            הכתובת שצריך להדביק:<br>
+            <code class="bg-blue-100 px-1 rounded font-mono">https://raw.githubusercontent.com/<strong>USER</strong>/<strong>REPO</strong>/main</code>
+          </span>
+        </div>
+        <div class="flex gap-2 items-start">
+          <span class="w-5 h-5 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold flex-shrink-0 text-[10px] mt-0.5">4</span>
+          <span>הדבק למעלה ← לחץ <strong>שמור</strong> — זהו!</span>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-800">
+          <i class="fas fa-lightbulb ml-1"></i>
+          לעדכון עתידי — ערוך את הקבצים ב-GitHub ולחץ <strong>רענן</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live webhook lists (read-only) -->
+  <div class="card p-5">
+    <div class="mb-5">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+        <span class="text-sm font-bold text-gray-700">מבזק חדשות</span>
+        <span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-semibold" id="news-wh-count">0</span>
+      </div>
+      <div id="news-webhooks-list" class="space-y-2"></div>
+    </div>
+    <hr class="divider">
+    <div>
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+        <span class="text-sm font-bold text-gray-700">צבע אדום</span>
+        <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold" id="red-wh-count">0</span>
+      </div>
+      <div id="red-webhooks-list" class="space-y-2"></div>
+    </div>
+  </div>
+
+</div>
+
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const DEFAULT_WEBHOOKS = {
+    news: [
+        "https://chat.googleapis.com/v1/spaces/AAQAgdDJy_E/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=k6LukOYY3oUIjWAbwOJvd6HBFoWTS_RsbsrFG-2ZG0c",
+        "https://chat.googleapis.com/v1/spaces/AAQAGhxWZZM/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=yMlu8Oyx9HRkBeWGXCvkUtHjCr57EyyVKAm5CariuvI"
+    ],
+    red: [
+        "https://chat.googleapis.com/v1/spaces/AAQAgdDJy_E/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=k6LukOYY3oUIjWAbwOJvd6HBFoWTS_RsbsrFG-2ZG0c",
+        "https://chat.googleapis.com/v1/spaces/AAQAGhxWZZM/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=IZg6yXQqGqRyXvBE26DX6t_E6IGJnKZoDokjzyjmY2E"
+    ]
+};
+
+const PROFILES = {
+    news: { title: "מבזק חדשות", logo: "https://i.postimg.cc/zvyWy8wk/צילום_מסך_2026_03_01_031615.png" },
+    red:  { title: "צבע אדום",   logo: "https://i.postimg.cc/ncKKRgq9/image.png" }
+};
+
+const EMERGENCY_KEYWORDS = ["צבע אדום","התרעה","התרעת חירום","אזעקה","מרחב מוגן","ירי רקטות","חדירת מחבלים","חשש לאירוע","נפילה"];
+
+let currentProfile = 'news';
+let buttons = [];
+let countdownTimer = null;
+let driveAccessToken = null;
+let driveFolderId = null;
+
+// Load from localStorage
+let webhooks = { news: [], red: [] };
+let history = JSON.parse(localStorage.getItem('msg_history') || '[]');
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+function init() {
+    const saved = localStorage.getItem('github_base') || '';
+    if (saved) {
+        document.getElementById('githubBaseUrl').value = saved;
+        fetchFromSheets();
+    }
+    renderHistory();
+}
+
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+    ['compose','history','webhooks'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+        document.getElementById(`tab${t.charAt(0).toUpperCase()+t.slice(1)}`).classList.toggle('hidden', t !== tab);
+    });
+    if (tab === 'history') renderHistory();
+    if (tab === 'webhooks') renderWebhookLists();
+}
+
+// ─── Profile ────────────────────────────────────────────────────────────────
+function setProfile(key) {
+    currentProfile = key;
+    ['news','red'].forEach(k => {
+        const btn = document.getElementById(`btn-${k}`);
+        btn.className = `profile-btn${k === key ? (k==='news' ? ' active-news' : ' active-red') : ''}`;
+    });
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.className = `send-btn send-btn-${key}`;
+    sendBtn.innerHTML = `<i class="fas fa-paper-plane"></i> שלח כ${key==='news'?'מבזק חדשות':'צבע אדום'}`;
+}
+
+// ─── Editor ────────────────────────────────────────────────────────────────
+function format(cmd) { document.execCommand(cmd, false, null); }
+
+function insertVideoTag() {
+    document.getElementById('editor').focus();
+    document.execCommand('insertHTML', false, '<br>וידאו בשרשור>>>');
+    onEditorChange();
+}
+
+function clearEditor() {
+    document.getElementById('editor').innerHTML = '';
+    onEditorChange();
+}
+
+async function pasteFromClipboard() {
+    try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+            document.getElementById('editor').focus();
+            document.execCommand('insertText', false, text);
+            onEditorChange();
+        }
+    } catch(e) {
+        // Fallback: focus editor so user can Ctrl+V manually
+        document.getElementById('editor').focus();
+        showToast('לחץ Ctrl+V להדבקה', 'info');
+    }
+}
+
+function onEditorChange() {
+    const text = document.getElementById('editor').innerText;
+    document.getElementById('charCount').textContent = text.length + ' תווים';
+    const hasKw = EMERGENCY_KEYWORDS.some(w => text.includes(w));
+    document.getElementById('keywordAlert').classList.toggle('hidden', !hasKw);
+}
+
+function editorDragOver(e) {
+    e.preventDefault();
+    const hasFile = [...(e.dataTransfer.items||[])].some(i => i.kind==='file');
+    if (hasFile) { e.dataTransfer.dropEffect='copy'; e.currentTarget.classList.add('drag-over'); }
+}
+function editorDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+}
+function editorDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    const files = [...(e.dataTransfer.files||[])];
+    const img = files.find(f => f.type.startsWith('image/'));
+    const vid = files.find(f => f.type.startsWith('video/'));
+    if (img) uploadImageFile(img);
+    else if (vid) uploadVideoFile(vid);
+}
+
+// ─── Image / Video preview dots ──────────────────────────────────────────────
+function updateImgPreviewDot() {
+    const url = document.getElementById('newsImgUrl').value.trim();
+    const thumb = document.getElementById('imgThumb');
+    const img = document.getElementById('imgThumbImg');
+    if (url) { img.src = url; thumb.classList.remove('hidden'); }
+    else { thumb.classList.add('hidden'); }
+}
+function clearImage() {
+    document.getElementById('newsImgUrl').value = '';
+    document.getElementById('imgThumb').classList.add('hidden');
+}
+function updateVideoPreviewDot() {
+    const url = document.getElementById('videoUrl').value.trim();
+    const info = document.getElementById('vidInfo');
+    if (url) { document.getElementById('vidInfoText').textContent = url.substring(0,50)+'...'; info.classList.remove('hidden'); }
+    else { info.classList.add('hidden'); }
+}
+
+// ─── Action buttons ──────────────────────────────────────────────────────────
+function addButton() {
+    const text = document.getElementById('btnText').value.trim();
+    const url = document.getElementById('btnUrl').value.trim();
+    if (!text || !url) return;
+    buttons.push({ id: Date.now(), text, url });
+    document.getElementById('btnText').value = '';
+    document.getElementById('btnUrl').value = '';
+    renderButtons();
+}
+function removeButton(id) { buttons = buttons.filter(b => b.id !== id); renderButtons(); }
+function renderButtons() {
+    document.getElementById('buttonsList').innerHTML = buttons.map(b => `
+        <div class="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl text-sm">
+            <i class="fas fa-external-link-alt text-blue-400 text-xs"></i>
+            <span class="font-semibold text-blue-700">${b.text}</span>
+            <button onclick="removeButton(${b.id})" class="text-red-400 hover:text-red-600 mr-auto"><i class="fas fa-times"></i></button>
+        </div>
+    `).join('');
+}
+
+// ─── Send flow ────────────────────────────────────────────────────────────────
+function initiateSend() {
+    const text = document.getElementById('editor').innerText.trim();
+    if (!text && !document.getElementById('newsImgUrl').value) {
+        showToast('הודעה ריקה', 'error'); return;
+    }
+    const hasKw = EMERGENCY_KEYWORDS.some(w => text.includes(w));
+    if (currentProfile === 'news' && hasKw) {
+        document.getElementById('modalEmergency').classList.remove('hidden'); return;
+    }
+    startCountdown();
+}
+
+function handleModal(choice) {
+    document.getElementById('modalEmergency').classList.add('hidden');
+    if (choice === 'switch') { setProfile('red'); startCountdown(); }
+    else if (choice === 'continue') startCountdown();
+}
+
+function startCountdown() {
+    let t = 2;
+    const n = webhooks[currentProfile].length;
+    showStatus('⏱', 'מכין שליחה...', `ההודעה תישלח בעוד ${t} שניות ל-${n} קבוצות`, true, true, 0);
+    countdownTimer = setInterval(() => {
+        t--;
+        if (t > 0) {
+            document.getElementById('statusDesc').textContent = `ההודעה תישלח בעוד ${t} שניות ל-${n} קבוצות`;
+        } else {
+            clearInterval(countdownTimer);
+            document.getElementById('statusCancelWrap').classList.add('hidden');
+            executeActualSend();
+        }
+    }, 1000);
+}
+
+function cancelSend() {
+    clearInterval(countdownTimer);
+    hideStatus();
+    showToast('השליחה בוטלה', 'info');
+}
+
+async function executeActualSend() {
+    const n = webhooks[currentProfile].length;
+    updateStatus('fas fa-spinner fa-spin', 'שולח...', `שולח ל-${n} קבוצות במקביל`, 'bg-blue-100 text-blue-600', false, 50);
+
+    const content = document.getElementById('editor').innerHTML;
+    const imgUrl = document.getElementById('newsImgUrl').value.trim();
+    const videoUrl = document.getElementById('videoUrl').value.trim();
+    const sendTime = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    const profile = PROFILES[currentProfile];
+
+    let text = content.replace(/<div>/g,'\n').replace(/<\/div>/g,'').replace(/<br>/g,'\n').replace(/&nbsp;/g,' ');
+
+    const widgets = [{ textParagraph: { text } }];
+    if (imgUrl) widgets.push({ image: { imageUrl: imgUrl } });
+    if (videoUrl) widgets.push({ buttonList: { buttons: [{ text: '▶ צפה בסרטון', onClick: { openLink: { url: videoUrl } }, color: { red:0.29, green:0.14, blue:0.69, alpha:1 } }] } });
+    if (buttons.length) widgets.push({ buttonList: { buttons: buttons.map(b => ({ text: b.text, onClick: { openLink: { url: b.url } } })) } });
+
+    const payload = { cardsV2: [{ card: {
+        header: { title: profile.title, subtitle: "נשלח ב: " + sendTime, imageUrl: profile.logo, imageType: "CIRCLE" },
+        sections: [{ widgets }]
+    }}]};
+
+    try {
+        const results = await Promise.all(webhooks[currentProfile].map(url =>
+            fetch(url, { method: 'POST', body: JSON.stringify(payload) })
+        ));
+        const allOk = results.every(r => r.ok);
+        if (!allOk) throw new Error('חלק מהשליחות נכשלו');
+
+        // Save to history
+        const plainText = document.getElementById('editor').innerText.trim();
+        addToHistory(currentProfile, plainText.substring(0, 120), imgUrl, videoUrl, n);
+
+        updateStatus('fas fa-check-double', 'נשלח בהצלחה!', `פורסם ב-${n} קבוצות`, 'bg-green-100 text-green-600', false, 100);
+        // Clear form
+        document.getElementById('editor').innerHTML = '';
+        clearImage();
+        document.getElementById('videoUrl').value = '';
+        document.getElementById('vidInfo').classList.add('hidden');
+        buttons = []; renderButtons();
+        onEditorChange();
+        setTimeout(hideStatus, 2200);
+
+    } catch(e) {
+        updateStatus('fas fa-exclamation-triangle', 'שגיאה בשליחה', e.message, 'bg-red-100 text-red-600', false, 0);
+        setTimeout(hideStatus, 3000);
+    }
+}
+
+// ─── Status modal helpers ─────────────────────────────────────────────────────
+function showStatus(icon, title, desc, showCancel, showProg, prog) {
+    const el = document.getElementById('modalStatus');
+    el.classList.remove('hidden');
+    document.getElementById('statusTitle').textContent = title;
+    document.getElementById('statusDesc').textContent = desc;
+    document.getElementById('statusCancelWrap').classList.toggle('hidden', !showCancel);
+    const pw = document.getElementById('statusProgWrap');
+    pw.classList.toggle('hidden', !showProg);
+    document.getElementById('statusProgFill').style.width = prog + '%';
+    const iw = document.getElementById('statusIcon');
+    iw.className = 'w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl bg-blue-100 text-blue-600';
+    iw.innerHTML = `<i class="fas fa-clock"></i>`;
+}
+function updateStatus(iconClass, title, desc, colorClass, showCancel, prog) {
+    document.getElementById('statusTitle').textContent = title;
+    document.getElementById('statusDesc').textContent = desc;
+    document.getElementById('statusCancelWrap').classList.toggle('hidden', !showCancel);
+    document.getElementById('statusProgFill').style.width = prog + '%';
+    const iw = document.getElementById('statusIcon');
+    iw.className = `w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl ${colorClass}`;
+    iw.innerHTML = `<i class="${iconClass}"></i>`;
+}
+function hideStatus() { document.getElementById('modalStatus').classList.add('hidden'); }
+
+// ─── Upload helpers ───────────────────────────────────────────────────────────
+async function uploadImageFile(file) {
+    const apiKey = document.getElementById('imgbbApiKey').value.trim();
+    if (!apiKey || !file) return;
+    showStatus('', 'מעלה תמונה...', file.name, false, true, 20);
+    updateStatus('fas fa-image', 'מעלה תמונה...', file.name, 'bg-blue-100 text-blue-600', false, 20);
+    try {
+        const base64 = await new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(file); });
+        updateStatus('fas fa-cloud-upload-alt', 'שולח לשרת...', 'imgbb', 'bg-blue-100 text-blue-600', false, 60);
+        const form = new FormData(); form.append('key',apiKey); form.append('image',base64);
+        const res = await fetch('https://api.imgbb.com/1/upload',{method:'POST',body:form});
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('newsImgUrl').value = data.data.url;
+            updateImgPreviewDot();
+            updateStatus('fas fa-check-double', 'הועלה בהצלחה!', 'התמונה מוכנה', 'bg-green-100 text-green-600', false, 100);
+            setTimeout(hideStatus, 1800);
+        } else throw new Error(data.error?.message||'שגיאה לא ידועה');
+    } catch(e) {
+        updateStatus('fas fa-times-circle', 'שגיאה', e.message, 'bg-red-100 text-red-600', false, 0);
+        setTimeout(hideStatus, 3000);
+    }
+}
+
+async function uploadVideoFile(file) {
+    if (!file) return;
+    const maxMB = 1024;
+    if (file.size > maxMB*1024*1024) { showToast('קובץ גדול מדי', 'error'); return; }
+    showStatus('', '', '', false, true, 5);
+    updateStatus('fab fa-google', 'מתחבר ל-Google Drive...', 'נא אשר גישה בחלון', 'bg-blue-100 text-blue-600', false, 5);
+    let token;
+    try {
+        token = await getDriveToken();
+    } catch(e) {
+        updateStatus('fas fa-times-circle', 'שגיאת כניסה', e.message, 'bg-red-100 text-red-600', false, 0);
+        setTimeout(hideStatus, 3000); return;
+    }
+    updateStatus('fas fa-folder-open', 'מאתר תיקייה...', 'סרטוני מבזק', 'bg-blue-100 text-blue-600', false, 15);
+    let folderId;
+    try { folderId = await getOrCreateFolder(token); }
+    catch(e) { updateStatus('fas fa-times-circle', 'שגיאת תיקייה', e.message, 'bg-red-100 text-red-600', false, 0); setTimeout(hideStatus,3000); return; }
+    updateStatus('fas fa-cloud-upload-alt', 'מעלה לDrive...', file.name, 'bg-blue-100 text-blue-600', false, 40);
+    try {
+        const metadata = { name:file.name, mimeType:file.type, parents:[folderId] };
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+        form.append('file', file);
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',{method:'POST',headers:{Authorization:`Bearer ${token}`},body:form});
+        if (!res.ok) throw new Error(`שגיאת העלאה: ${res.status}`);
+        const { id } = await res.json();
+        document.getElementById('videoUrl').value = `https://drive.google.com/file/d/${id}/view`;
+        updateVideoPreviewDot();
+        updateStatus('fas fa-check-double', 'הועלה!', 'הסרטון נשמר ב-Drive', 'bg-green-100 text-green-600', false, 100);
+        setTimeout(hideStatus, 2500);
+    } catch(e) {
+        if (e.message.includes('401')) { driveAccessToken=null; driveFolderId=null; }
+        updateStatus('fas fa-times-circle', 'שגיאה', e.message, 'bg-red-100 text-red-600', false, 0);
+        setTimeout(hideStatus, 3000);
+    }
+}
+
+function getDriveToken() {
+    return new Promise((resolve, reject) => {
+        if (driveAccessToken) { resolve(driveAccessToken); return; }
+        const clientId = document.getElementById('googleClientId').value.trim();
+        const client = google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: 'https://www.googleapis.com/auth/drive.file',
+            callback: (resp) => { if (resp.error) { reject(new Error(resp.error)); return; } driveAccessToken=resp.access_token; resolve(driveAccessToken); }
+        });
+        client.requestAccessToken();
+    });
+}
+async function getOrCreateFolder(token) {
+    if (driveFolderId) return driveFolderId;
+    const sr = await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'%D7%A1%D7%A8%D7%98%D7%95%D7%A0%D7%99+%D7%9E%D7%91%D7%96%D7%A7'+and+mimeType%3D'application%2Fvnd.google-apps.folder'+and+trashed%3Dfalse&fields=files(id,name)`,{headers:{Authorization:`Bearer ${token}`}});
+    if (sr.ok) { const d=await sr.json(); if (d.files&&d.files.length>0) { driveFolderId=d.files[0].id; return driveFolderId; } }
+    const fr = await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({name:'סרטוני מבזק',mimeType:'application/vnd.google-apps.folder'})});
+    if (!fr.ok) throw new Error(`שגיאה ביצירת תיקייה: ${fr.status}`);
+    const f=await fr.json(); driveFolderId=f.id; return driveFolderId;
+}
+
+// ─── History ──────────────────────────────────────────────────────────────────
+function addToHistory(profile, text, imgUrl, videoUrl, groupCount) {
+    const entry = {
+        id: Date.now(),
+        profile,
+        text: text || '(ללא טקסט)',
+        imgUrl,
+        videoUrl,
+        groupCount,
+        time: new Date().toLocaleString('he-IL')
+    };
+    history.unshift(entry);
+    if (history.length > 50) history.pop();
+    localStorage.setItem('msg_history', JSON.stringify(history));
+}
+
+function renderHistory() {
+    const container = document.getElementById('historyList');
+    if (!history.length) {
+        container.innerHTML = `<div class="text-center py-12 text-gray-400"><i class="fas fa-inbox text-4xl mb-3 block opacity-30"></i><p class="text-sm">עדיין לא נשלחו הודעות</p></div>`;
+        return;
+    }
+    container.innerHTML = history.map(e => `
+        <div class="history-item">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-gray-700 leading-relaxed line-clamp-2">${e.text}</p>
+                    <div class="flex items-center gap-2 mt-2 flex-wrap">
+                        <span class="text-xs px-2 py-0.5 rounded-full font-semibold ${e.profile==='news'?'history-badge-news':'history-badge-red'}">
+                            ${e.profile==='news'?'מבזק חדשות':'צבע אדום'}
+                        </span>
+                        <span class="text-xs text-gray-400"><i class="fas fa-users ml-1"></i>${e.groupCount} קבוצות</span>
+                        ${e.imgUrl ? '<span class="text-xs text-gray-400"><i class="fas fa-image ml-1"></i>תמונה</span>' : ''}
+                        ${e.videoUrl ? '<span class="text-xs text-gray-400"><i class="fas fa-video ml-1"></i>סרטון</span>' : ''}
+                    </div>
+                </div>
+                <div class="text-xs text-gray-400 whitespace-nowrap">${e.time}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function clearHistory() {
+    if (!confirm('למחוק את כל ההיסטוריה?')) return;
+    history = [];
+    localStorage.setItem('msg_history', '[]');
+    renderHistory();
+}
+
+// ─── GitHub sync ──────────────────────────────────────────────────────────────
+let GITHUB_BASE = localStorage.getItem('github_base') || '';
+
+function saveGithubUrl() {
+    const val = document.getElementById('githubBaseUrl').value.trim().replace(/\/$/, '');
+    if (!val.startsWith('https://raw.githubusercontent.com')) {
+        alert('כתובת לא תקינה — חייבת להתחיל ב-https://raw.githubusercontent.com');
+        return;
+    }
+    GITHUB_BASE = val;
+    localStorage.setItem('github_base', val);
+    document.getElementById('urlSaveStatus').textContent = '✅ נשמר';
+    setTimeout(() => document.getElementById('urlSaveStatus').textContent = '', 2000);
+    fetchFromSheets();
+}
+
+async function fetchTxt(url) {
+    const res = await fetch(url + '?t=' + Date.now()); // cache bust
+    if (!res.ok) throw new Error('קובץ לא נמצא: ' + url.split('/').pop());
+    return await res.text();
+}
+
+async function fetchFromSheets() {
+    const btn = document.getElementById('syncBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+
+    if (!GITHUB_BASE) {
+        setSyncStatus('error', 'fas fa-link-slash', 'נא להגדיר כתובת GitHub למעלה');
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> רענן';
+        btn.disabled = false;
+        return;
+    }
+
+    setSyncStatus('loading', 'fas fa-spinner fa-spin', 'טוען מ-GitHub...');
+
+    try {
+        const [newsTxt, redTxt] = await Promise.all([
+            fetchTxt(GITHUB_BASE + '/webhooks-news.txt'),
+            fetchTxt(GITHUB_BASE + '/webhooks-red.txt'),
+        ]);
+
+        const parse = txt => txt.split(/\r?\n/)
+            .map(l => l.trim()).filter(l => l.startsWith('http'));
+
+        webhooks.news = parse(newsTxt);
+        webhooks.red  = parse(redTxt);
+
+        const now = new Date().toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+        document.getElementById('lastSyncTime').innerHTML =
+            `<i class="fas fa-circle text-green-400 text-[8px]"></i> עודכן ב-${now} · ${webhooks.news.length + webhooks.red.length} וובהוקים`;
+
+        renderWebhookLists();
+        setSyncStatus('success', 'fas fa-check-double',
+            `נטענו ${webhooks.news.length} מבזק חדשות + ${webhooks.red.length} צבע אדום`);
+        setTimeout(() => document.getElementById('syncStatus').classList.add('hidden'), 3000);
+
+    } catch(e) {
+        setSyncStatus('error', 'fas fa-github', 'שגיאה: ' + e.message);
+        document.getElementById('lastSyncTime').innerHTML =
+            '<i class="fas fa-circle text-red-400 text-[8px]"></i> שגיאת חיבור';
+    } finally {
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> רענן';
+        btn.disabled = false;
+    }
+}
+
+// ─── Webhooks display ────────────────────────────────────────────────────────
+function renderWebhookCounts() {
+    document.getElementById('news-count').textContent = webhooks.news.length + ' Webhooks';
+    document.getElementById('red-count').textContent = webhooks.red.length + ' Webhooks';
+    document.getElementById('news-wh-count').textContent = webhooks.news.length;
+    document.getElementById('red-wh-count').textContent = webhooks.red.length;
+}
+
+function renderWebhookLists() {
+    renderWebhookCounts();
+    ['news','red'].forEach(type => {
+        const container = document.getElementById(`${type}-webhooks-list`);
+        if (!webhooks[type].length) {
+            container.innerHTML = `<div class="text-sm text-gray-400 text-center py-3"><i class="fas fa-spinner fa-spin ml-1"></i> טוען מהגיליון...</div>`;
+            return;
+        }
+        container.innerHTML = webhooks[type].map((url, idx) => `
+            <div class="webhook-item">
+                <div class="w-6 h-6 rounded-full bg-${type==='news'?'blue':'red'}-100 text-${type==='news'?'blue':'red'}-600 flex items-center justify-center text-xs font-bold flex-shrink-0">${idx+1}</div>
+                <span class="webhook-url" title="${url}">${url}</span>
+            </div>
+        `).join('');
+    });
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function showToast(msg, type='info') {
+    const colors = { info:'bg-gray-800', error:'bg-red-600', success:'bg-green-600' };
+    const t = document.createElement('div');
+    t.className = `fixed bottom-6 left-1/2 -translate-x-1/2 ${colors[type]} text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl z-[100] transition-all`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
